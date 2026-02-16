@@ -42,9 +42,9 @@ image-push:
 	docker push $(username)/spark-example4:latest
 
 infra-up:
-	cd ./infrastructure 
 	gcloud auth login 
-	terraform init
+	cd ./infrastructure && \
+	terraform init && \
 	terraform apply -auto-approve
 
 create-ingestor-key:

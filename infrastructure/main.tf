@@ -47,6 +47,12 @@ resource "time_sleep" "wait_for_sa" {
   create_duration = "30s"
 }
 
+# Create the Service Account for the Ingestor
+resource "google_service_account" "ingestor_sa" {
+  account_id   = "ingestor-sa"
+  display_name = "Ingestor Service Account (GitHub Actions)"
+}
+
 # --------------------------------------------------------------------------------
 # 3. Data Lake (GCS)
 # --------------------------------------------------------------------------------
@@ -66,6 +72,14 @@ resource "google_storage_bucket_iam_member" "sa_gcs_admin" {
   bucket = google_storage_bucket.data_lake.name
   role   = "roles/storage.admin"
   member = "serviceAccount:${google_service_account.etl_sa.email}"
+}
+
+# Grant the Ingestor permission to upload to the Data Lake
+# "objectAdmin" allows writing, overwriting, and deleting files in this specific bucket
+resource "google_storage_bucket_iam_member" "ingestor_gcs_writer" {
+  bucket = google_storage_bucket.data_lake.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.ingestor_sa.email}"
 }
 
 # --------------------------------------------------------------------------------
@@ -172,20 +186,3 @@ resource "google_cloud_scheduler_job" "daily_trigger" {
   depends_on = [google_cloud_run_v2_job.etl_job]
 }
 
-# --------------------------------------------------------------------------------
-# 7. Ingestion Identity (For GitHub Actions)
-# --------------------------------------------------------------------------------
-
-# Create the Service Account for the Ingestor
-resource "google_service_account" "ingestor_sa" {
-  account_id   = "ingestor-sa"
-  display_name = "Ingestor Service Account (GitHub Actions)"
-}
-
-# Grant the Ingestor permission to upload to the Data Lake
-# "objectAdmin" allows writing, overwriting, and deleting files in this specific bucket
-resource "google_storage_bucket_iam_member" "ingestor_gcs_writer" {
-  bucket = google_storage_bucket.data_lake.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.ingestor_sa.email}"
-}
