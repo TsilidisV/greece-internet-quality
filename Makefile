@@ -16,31 +16,6 @@ INGESTOR_KEY_FILE_REL := ./.secrets/$(INGEST_KEY_NAME)
 
 INFRA_DIR := infrastructure
 
-.PHONY: create-key
-
-generate-env:
-	@echo "Extracting Terraform outputs to $(ENV_FILE)..."
-	@mkdir -p $(dir $(ENV_FILE))
-	@terraform -chdir=infrastructure output -json | jq -r 'to_entries | .[] | "\(.key)=\(.value.value)"' > $(ENV_FILE)
-	@echo "Done! $(ENV_FILE) has been updated."
-
-.PHONY: clean-env
-clean-env:
-	@rm -f $(ENV_FILE)
-	@echo "Removed $(ENV_FILE)"
-
-docker-run: generate-env
-	cd ./transform && \
-	docker compose up --build
-
-
-
-image-push:
-	cd ./transform && \
-	docker login && \
-	docker build -t $(username)/spark-example4:latest . && \
-	docker push $(username)/spark-example4:latest
-
 infra-up:
 	gcloud auth login 
 	cd ./infrastructure && \
@@ -70,3 +45,38 @@ create-ingestor-key:
 	@echo "   Key: $(INGESTOR_KEY_FILE)"
 	@echo "   Env: $(INGESTOR_ENV_FILE)"
 	@echo "⚠️  REMINDER: Check your .gitignore!"
+
+
+
+
+
+
+
+
+
+
+
+
+generate-env:
+	@echo "Extracting Terraform outputs to $(ENV_FILE)..."
+	@mkdir -p $(dir $(ENV_FILE))
+	@terraform -chdir=infrastructure output -json | jq -r 'to_entries | .[] | "\(.key)=\(.value.value)"' > $(ENV_FILE)
+	@echo "Done! $(ENV_FILE) has been updated."
+
+.PHONY: clean-env
+clean-env:
+	@rm -f $(ENV_FILE)
+	@echo "Removed $(ENV_FILE)"
+
+docker-run: generate-env
+	cd ./transform && \
+	docker compose up --build
+
+
+
+image-push:
+	cd ./transform && \
+	docker login && \
+	docker build -t $(username)/spark-example4:latest . && \
+	docker push $(username)/spark-example4:latest
+
