@@ -8,14 +8,14 @@ services:
     # Map the secret file using a simple relative path
     # Docker Compose handles the Windows C:\ conversion automatically!
     volumes:
-      - ./.secrets/service-account.json:/app/gcp-credentials.json
+      - ./.secrets/transform-gcp-key.json:/app/gcp-credentials.json
     
     env_file:
       - .env
 
     environment:
       # Map the variables from the .env file to the container
-      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
-      - GCS_BUCKET=${GCS_BUCKET}
+      - PROJECT_ID=${PROJECT_ID}
+      - GCS_BUCKET_NAME=${GCS_BUCKET_NAME}
       - BQ_DATASET=${BQ_DATASET}
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-credentials.json
+      - INGESTOR_GCP_KEY=/app/gcp-credentials.json

@@ -131,7 +131,7 @@ resource "google_cloud_run_v2_job" "etl_job" {
         
         # Pass environment variables if your code needs them
         env {
-          name  = "GCS_BUCKET"
+          name  = "GCS_BUCKET_NAME"
           value = google_storage_bucket.data_lake.name
         }
         env {
