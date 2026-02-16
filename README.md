@@ -23,3 +23,19 @@ Logs you in to gcloud cli and build infrastructure by creating a service account
 make create-ingestor-key
 ```
 downloads service account key for ingest with writing to bucket permissions and creates a .env file with INGESTOR_GCP_KEY and GCS_BUCKET_NAME which are read in python.
+
+### Transform
+```bash
+make create-transform-key
+```
+downloads service account key for ingest with reading to bucket and writing to dataset permissions and creates a .env file with TRANSFORM_GCP_KEY, GCS_BUCKET_NAME and BQ_DATASET which are read in the `docker-compose.yml`.
+
+```bash
+make docker-run
+```
+Builds and locally runs the dockerfile
+
+```bash
+make image-push
+```
+Builds and pushes image to docker hub

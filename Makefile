@@ -93,6 +93,10 @@ image-push:
 
 
 
+
+
+
+
 generate-env:
 	@echo "Extracting Terraform outputs to $(ENV_FILE)..."
 	@mkdir -p $(dir $(ENV_FILE))
@@ -105,12 +109,4 @@ clean-env:
 	@echo "Removed $(ENV_FILE)"
 
 
-
-
-
-image-push:
-	cd ./transform && \
-	docker login && \
-	docker build -t $(username)/spark-example4:latest . && \
-	docker push $(username)/spark-example4:latest
 
