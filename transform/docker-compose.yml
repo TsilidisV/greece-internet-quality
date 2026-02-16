@@ -1,0 +1,21 @@
+services:
+  spark-app:
+    # Build the image using the Dockerfile inside the 'transform' folder
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    
+    # Map the secret file using a simple relative path
+    # Docker Compose handles the Windows C:\ conversion automatically!
+    volumes:
+      - ./.secrets/service-account.json:/app/gcp-credentials.json
+    
+    env_file:
+      - .env
+
+    environment:
+      # Map the variables from the .env file to the container
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GCS_BUCKET=${GCS_BUCKET}
+      - BQ_DATASET=${BQ_DATASET}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-credentials.json
