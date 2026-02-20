@@ -38,12 +38,14 @@ app = typer.Typer()
 
 def get_storage_client():
     """Initializes the GCS client."""
-    try:
-        credentials = service_account.Credentials.from_service_account_file(KEY_PATH)
-        return storage.Client(credentials=credentials)
-    except Exception as e:
-        logger.error(f"Failed to initialize GCS client: {e}")
-        raise
+    #try:
+    #    credentials = service_account.Credentials.from_service_account_file(KEY_PATH)
+    #    return storage.Client(credentials=credentials)
+    #except Exception as e:
+    #    logger.error(f"Failed to initialize GCS client: {e}")
+    #    raise
+
+    return storage.Client()
 
 
 def upload_parquet_to_gcp(df: pd.DataFrame, destination_blob_name: str):
