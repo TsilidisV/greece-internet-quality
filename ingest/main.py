@@ -37,15 +37,27 @@ app = typer.Typer()
 
 
 def get_storage_client():
-    """Initializes the GCS client."""
-    #try:
-    #    credentials = service_account.Credentials.from_service_account_file(KEY_PATH)
-    #    return storage.Client(credentials=credentials)
-    #except Exception as e:
-    #    logger.error(f"Failed to initialize GCS client: {e}")
-    #    raise
-
-    return storage.Client()
+    """
+    Initializes the GCS client.
+    - Locally: Uses the explicit JSON key path from .env.
+    - GitHub Actions: Uses Application Default Credentials (ADC) 
+      configured by the 'google-github-actions/auth' step.
+    """
+    try:
+        # 1. Check if we are running locally with a specific key path
+        if KEY_PATH:
+            logger.info(f"Authenticating with local key file: {KEY_PATH}")
+            credentials = service_account.Credentials.from_service_account_file(KEY_PATH)
+            return storage.Client(credentials=credentials)
+        
+        # 2. Otherwise, assume we are in a secure environment (GitHub Actions)
+        # The client will automatically find credentials set by the auth action.
+        logger.info("Authenticating with Application Default Credentials (ADC)")
+        return storage.Client()
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize GCS client: {e}")
+        raise
 
 
 def upload_parquet_to_gcp(df: pd.DataFrame, destination_blob_name: str):
@@ -131,8 +143,10 @@ def process_and_upload_day(target_date_str: str):
 
     except requests.exceptions.HTTPError as e:
         logger.error(f"HTTP Error fetching data for {target_date_str}: {e}")
+        raise
     except Exception as e:
         logger.exception(f"Unexpected error processing {target_date_str}: {e}")
+        raise
 
 
 # --- CLI Commands ---
