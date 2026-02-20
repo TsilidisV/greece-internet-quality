@@ -1,7 +1,7 @@
 import io
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import requests
@@ -40,21 +40,23 @@ def get_storage_client():
     """
     Initializes the GCS client.
     - Locally: Uses the explicit JSON key path from .env.
-    - GitHub Actions: Uses Application Default Credentials (ADC) 
+    - GitHub Actions: Uses Application Default Credentials (ADC)
       configured by the 'google-github-actions/auth' step.
     """
     try:
         # 1. Check if we are running locally with a specific key path
         if KEY_PATH:
             logger.info(f"Authenticating with local key file: {KEY_PATH}")
-            credentials = service_account.Credentials.from_service_account_file(KEY_PATH)
+            credentials = service_account.Credentials.from_service_account_file(
+                KEY_PATH
+            )
             return storage.Client(credentials=credentials)
-        
+
         # 2. Otherwise, assume we are in a secure environment (GitHub Actions)
         # The client will automatically find credentials set by the auth action.
         logger.info("Authenticating with Application Default Credentials (ADC)")
         return storage.Client()
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize GCS client: {e}")
         raise
@@ -121,7 +123,7 @@ def process_and_upload_day(target_date_str: str):
         df = pd.DataFrame(data)
 
         # Add ingestion timestamp
-        df["ingested_at"] = datetime.utcnow()
+        df["ingested_at"] = datetime.now(timezone.utc)
 
         # Ensure date columns are proper datetime objects (optional but recommended for Parquet)
         if "date" in df.columns:
