@@ -10,12 +10,17 @@ jobs:
   run-pipeline:
     runs-on: ubuntu-latest
     env:
-      INGESTOR_GCP_KEY: ${{ secrets.INGESTOR_GCP_KEY }}
       GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
 
     steps:
       - uses: actions/checkout@v4
       
+      # 1. Authenticate with GCP
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.INGESTOR_GCP_KEY }}
+
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         
