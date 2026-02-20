@@ -4,7 +4,9 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-    
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+
     # Map the secret file using a simple relative path
     # Docker Compose handles the Windows C:\ conversion automatically!
     volumes:

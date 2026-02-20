@@ -1,0 +1,26 @@
+name: Daily Pipeline
+
+on:
+  schedule:
+    # Every day at 05:12 UTC 
+    - cron: '12 05 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    env:
+      INGESTOR_GCP_KEY: ${{ secrets.INGESTOR_GCP_KEY }}
+      GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        
+      - name: Sync dependencies
+        run: uv --directory ingest sync --frozen
+        
+      - name: Ingest Data
+        run: uv run --directory ingest main.py daily

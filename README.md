@@ -1,11 +1,4 @@
 ## Getting Started
-- we need the key of job-etl-sa inside transform
-
-
-
-select project, write it in variables
-get keys for the etl job, put them in ./transform/.secrets 
-winget install jqlang.jq
 
 ### Prerequisites
 - [Google Cloud CLI](https://docs.cloud.google.com/sdk/docs/install-sdk)
@@ -13,6 +6,8 @@ winget install jqlang.jq
 - [Make](https://www.gnu.org/software/make/)
 
 ### Infrastructure
+Edit `infrastructure/variables.tf` with your desired project ID, bucket name, dataset name, etc.
+
 ```bash
 make infra-up
 ```
@@ -22,13 +17,20 @@ Logs you in to gcloud cli and build infrastructure by creating a service account
 ```bash
 make create-ingestor-key
 ```
-downloads service account key for ingest with writing to bucket permissions and creates a .env file with INGESTOR_GCP_KEY and GCS_BUCKET_NAME which are read in python.
+downloads service account key for ingest with writing to bucket permissions and creates a `.env` file with INGESTOR_GCP_KEY and GCS_BUCKET_NAME which are read in python.
+
+```python
+uv run ingest/main.py daily
+```
+uploads files to the GCS bucket.
+
+To have automated ingestion through github actions add an `INGESTOR_GCP_KEY` and a `GCS_BUCKET_NAME` secret to your forked github repository, with the contents of the `transform-gcp-key.json` and your chosen name of the GCS bucket, respectively.
 
 ### Transform
 ```bash
 make create-transform-key
 ```
-downloads service account key for ingest with reading to bucket and writing to dataset permissions and creates a .env file with TRANSFORM_GCP_KEY, GCS_BUCKET_NAME and BQ_DATASET which are read in the `docker-compose.yml`.
+downloads service account key for load and transform with reading to bucket and writing to dataset permissions and creates a `.env` file with TRANSFORM_GCP_KEY, GCS_BUCKET_NAME and BQ_DATASET which are read in the `docker-compose.yml`.
 
 ```bash
 make docker-run

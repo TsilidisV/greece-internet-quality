@@ -19,8 +19,8 @@ from tenacity import (
 # --- Setup & Configuration ---
 load_dotenv()
 
-BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 KEY_PATH = os.getenv("INGESTOR_GCP_KEY")
+BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 API_URL = "https://data.gov.gr/api/v1/query/hyperion"
 
 # Configure Logging
