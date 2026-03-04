@@ -106,6 +106,13 @@ resource "google_project_iam_member" "sa_bq_job_user" {
   member  = "serviceAccount:${google_service_account.etl_sa.email}"
 }
 
+# Grant the ETL Service Account permission to use the BigQuery Storage Read API (required by Spark)
+resource "google_project_iam_member" "sa_bq_read_session_user" {
+  project = var.project_id
+  role    = "roles/bigquery.readSessionUser"
+  member  = "serviceAccount:${google_service_account.etl_sa.email}"
+}
+
 # --------------------------------------------------------------------------------
 # 5. Cloud Run Job (The ETL Runner)
 # --------------------------------------------------------------------------------
@@ -118,14 +125,14 @@ resource "google_cloud_run_v2_job" "etl_job" {
       service_account = google_service_account.etl_sa.email
       
       containers {
-        image = var.docker_image
+        image = "docker.io/${var.docker_image}"
         
         # Optimization for Free Tier:
         # Keep resources just high enough for Spark/Pandas but low enough to save credits.
         resources {
           limits = {
             cpu    = "1"
-            memory = "1Gi" 
+            memory = "2Gi" 
           }
         }
         

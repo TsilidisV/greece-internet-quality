@@ -90,3 +90,9 @@ venv/
 
 **.json
 **.secrets/
+
+# Ignore all secret-related files explicitly
+.secrets/
+credentials/
+*.json
+.env

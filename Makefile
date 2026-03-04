@@ -79,15 +79,15 @@ create-transform-key:
 	@echo "⚠️  REMINDER: Check your .gitignore!"
 
 
-docker-run: create-transform-key
+docker-run:
 	cd ./transform && \
 	docker compose up --build
 
 image-push:
 	cd ./transform && \
 	docker login && \
-	docker build -t $(username)/spark-example4:latest . && \
-	docker push $(username)/spark-example4:latest
+	docker build -t $(username)/spark-example5:latest . && \
+	docker push $(username)/spark-example5:latest
 
 
 

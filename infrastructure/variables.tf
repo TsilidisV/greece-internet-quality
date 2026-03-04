@@ -22,10 +22,11 @@ variable "dataset_id" {
   default     = "data_warehouse"
 }
 
+# TODO: have it be outputted and then load it into makefile image-push
 variable "docker_image" {
   description = "The Docker Hub image URL (e.g., docker.io/username/image:tag)"
   type        = string
-  default     = "docker.io/vtsilidis/spark-example4:latest"
+  default     = "vtsilidis/spark-example5:latest"
 }
 
 variable "job_name" {

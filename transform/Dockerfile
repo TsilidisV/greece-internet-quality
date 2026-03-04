@@ -1,40 +1,31 @@
-# 1. Use a slim Python base image (Debian-based for Java compatibility)
-FROM python:3.11-slim-bookworm
+# Use a lightweight Python base image
+FROM python:3.11-slim
 
-# 2. Prevent Python from buffering stdout (so logs show up immediately in Cloud Logging)
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    # Point to the location where uv installs packages
-    VIRTUAL_ENV=/app/.venv \
-    PATH="/app/.venv/bin:$PATH" \
-    # Spark Specific Envs
-    JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64" \
-    SPARK_HOME="/app/.venv/lib/python3.11/site-packages/pyspark"
+# 1. Copy uv directly from the official image (Best Practice)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# 3. Install System Dependencies (Java 17 is required for newer Spark)
-# We use --no-install-recommends to keep the image small
+# 2. Install Java (Required for PySpark)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    openjdk-17-jre-headless \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get install -y default-jre procps && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# 4. Install uv (The magic tool)
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+# 3. Set environment variables for uv
+ENV UV_SYSTEM_PYTHON=1
+# Make sure uv doesn't hang waiting for user input
+ENV UV_NO_CACHE=1 
 
-# 5. Set working directory
 WORKDIR /app
 
-# 6. Copy dependency definitions
-COPY pyproject.toml uv.lock ./ 
-# (Or requirements.txt if you prefer, but pyproject.toml is modern)
+# 4. Copy dependency files
+COPY pyproject.toml uv.lock ./
 
-# 7. Install dependencies using uv
-# --frozen: strictly use the lockfile (secure)
-# --no-cache: keep image small
-RUN uv sync --frozen --no-cache
+# 5. Install dependencies
+# (Since uv is in /bin/, this will definitely be found)
+RUN uv sync --frozen
 
 # 8. Copy your transformation code
 COPY src/ .
 
 # 9. Run the ETL job
-CMD ["python", "check_connections.py"]
+CMD ["uv", "run", "medallion.py"]

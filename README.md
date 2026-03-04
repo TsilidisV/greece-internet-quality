@@ -20,7 +20,7 @@ make create-ingestor-key
 downloads service account key for ingest with writing to bucket permissions and creates a `.env` file with INGESTOR_GCP_KEY and GCS_BUCKET_NAME which are read in python.
 
 ```python
-uv run ingest/main.py daily
+uv run --directory ingest main.py daily
 ```
 uploads files to the GCS bucket.
 

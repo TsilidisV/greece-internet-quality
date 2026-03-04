@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
+import pyarrow as pa
 import requests
 import typer
 from dotenv import load_dotenv
@@ -62,7 +63,7 @@ def get_storage_client():
         raise
 
 
-def upload_parquet_to_gcp(df: pd.DataFrame, destination_blob_name: str):
+def upload_parquet_to_gcp(df: pd.DataFrame, destination_blob_name: str, schema: pa.schema):
     """
     Uploads a Pandas DataFrame as a parquet file to GCS.
     """
@@ -73,7 +74,7 @@ def upload_parquet_to_gcp(df: pd.DataFrame, destination_blob_name: str):
 
         # Convert DataFrame to in-memory Parquet buffer
         buffer = io.BytesIO()
-        df.to_parquet(buffer, index=False, engine="pyarrow")
+        df.to_parquet(buffer, index=False, engine="pyarrow", schema=schema)
         buffer.seek(0)  # Reset buffer position
 
         blob.upload_from_file(buffer, content_type="application/octet-stream")
@@ -122,12 +123,45 @@ def process_and_upload_day(target_date_str: str):
         # 2. Process Data (Convert to DF, Add Timestamp)
         df = pd.DataFrame(data)
 
+        df = df.astype({
+            "connection_postal_code": "string",
+            "connection_id": "string",
+            "connection_municipality_id": "string",
+            "connection_regional_unit_id": "string",
+            "connection_periphery_id": "string"
+        })
+
         # Add ingestion timestamp
         df["ingested_at"] = datetime.now(timezone.utc)
 
-        # Ensure date columns are proper datetime objects (optional but recommended for Parquet)
-        if "date" in df.columns:
-            df["date"] = pd.to_datetime(df["date"])
+        #### SCHEMA ON WRITE
+        # Ensure date columns are proper datetime objects
+        df['measurement_time'] = pd.to_datetime(df['measurement_time'])
+        
+        hyperion_schema = pa.schema([
+            ('measurement_time', pa.timestamp('us')), # μs precision so that spark can handle it
+            ('connection_id', pa.string()), 
+            ('client_ip', pa.string()),
+            ('measurement_id', pa.int64()),
+            ('measured_downstream_mbps', pa.float64()),
+            ('measured_upstream_mbps', pa.float64()),
+            ('measured_rtt_msec', pa.float64()),
+            ('measured_loss_percentage', pa.float64()),
+            ('measured_jitter_msec', pa.float64()),
+            ('client_operating_system', pa.string()),
+            ('client_operating_system_version', pa.string()),
+            ('client_operating_system_architecture', pa.string()),
+            ('ISP', pa.string()),
+            ('contract_download_mbps', pa.float64()),
+            ('contract_upload_mbps', pa.float64()),
+            ('connection_postal_code', pa.string()),
+            ('connection_municipality_id', pa.string()),
+            ('connection_municipality', pa.string()),
+            ('connection_regional_unit_id', pa.string()),
+            ('connection_regional_unit', pa.string()),
+            ('connection_periphery_id', pa.string()),
+            ('connection_periphery', pa.string())
+        ])
 
         # 3. Generate Hive-style Path
         # Parse the date to extract year, month, day
@@ -141,7 +175,7 @@ def process_and_upload_day(target_date_str: str):
         )
 
         # 4. Upload
-        upload_parquet_to_gcp(df, hive_path)
+        upload_parquet_to_gcp(df, hive_path, hyperion_schema)
 
     except requests.exceptions.HTTPError as e:
         logger.error(f"HTTP Error fetching data for {target_date_str}: {e}")
