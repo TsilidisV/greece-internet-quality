@@ -24,3 +24,11 @@ output "DASHBOARD_SA_EMAIL" {
   description = "The email of the Dashboard Service Account"
   value       = google_service_account.dashboard_sa.email
 }
+
+output "CLOUD_RUN_JOB_NAME" {
+  value = google_cloud_run_v2_job.etl_job.name
+}
+
+output "GCP_REGION" {
+  value = google_cloud_run_v2_job.etl_job.name
+}

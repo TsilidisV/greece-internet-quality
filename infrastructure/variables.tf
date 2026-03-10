@@ -1,15 +1,18 @@
+# github actions
 variable "project_id" {
   description = "The GCP Project ID"
   type        = string
   default     = "new-test-owwowow"
 }
 
+# github actions
 variable "region" {
   description = "The GCP region for resources (Must be us-central1, us-west1, or us-east1 for Free Tier GCS)"
   type        = string
   default     = "us-east1"
 }
 
+# github actions
 variable "bucket_name" {
   description = "Globally unique name for the GCS bucket"
   type        = string
@@ -29,6 +32,7 @@ variable "docker_image" {
   default     = "vtsilidis/spark-example5:latest"
 }
 
+# github actions
 variable "job_name" {
   description = "Name of the Cloud Run Job"
   type        = string

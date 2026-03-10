@@ -85,6 +85,14 @@ resource "google_cloud_run_v2_job_iam_member" "ingestor_invoke_permissions" {
   member   = "serviceAccount:${google_service_account.ingestor_sa.email}"
 }
 
+# Allow the Ingestor SA to view execution status (needed for the --wait flag)
+resource "google_cloud_run_v2_job_iam_member" "ingestor_viewer_permissions" {
+  name     = google_cloud_run_v2_job.etl_job.name
+  location = google_cloud_run_v2_job.etl_job.location
+  role     = "roles/run.viewer"
+  member   = "serviceAccount:${google_service_account.ingestor_sa.email}"
+}
+
 # --------------------------------------------------------------------------------
 # 3. Data Lake (GCS)
 # --------------------------------------------------------------------------------

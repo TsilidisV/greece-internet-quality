@@ -9,16 +9,25 @@ on:
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
-    env:
-      GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
-      # It's good practice to set these as env vars
-      GCP_PROJECT_ID:  ${{ secrets.GCP_PROJECT_ID }} # Replace or use secrets
-      GCP_REGION:  ${{ secrets.GCP_REGION }}         # Replace or use secrets
-      JOB_NAME:  ${{ secrets.JOB_NAME }}             # Replace with var.job_name value
 
     steps:
       - uses: actions/checkout@v4
       
+      - uses: hashicorp/setup-terraform@v3
+
+      # Initialize Terraform (requires backend configuration in your tf files)
+      - name: Terraform Init
+        run: terraform init
+
+      # Read the outputs and save them to the GitHub Environment ($GITHUB_ENV)
+      - name: Get Terraform Outputs
+        id: tf-outputs
+        run: |
+          echo "GCS_BUCKET=$(terraform output -raw GCS_BUCKET)" >> $GITHUB_ENV
+          echo "GOOGLE_CLOUD_PROJECT=$(terraform output -raw GOOGLE_CLOUD_PROJECT)" >> $GITHUB_ENV
+          echo "GCP_REGION=$(terraform output -raw GCP_REGION)" >> $GITHUB_ENV
+          echo "CLOUD_RUN_JOB_NAME=$(terraform output -raw CLOUD_RUN_JOB_NAME)" >> $GITHUB_ENV
+
       # 1. Authenticate with GCP
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -41,7 +50,7 @@ jobs:
       # 3. Trigger the Cloud Run Job
       - name: Trigger ETL Cloud Run Job
         run: |
-          gcloud run jobs execute ${{ env.JOB_NAME }} \
-            --project=${{ env.GCP_PROJECT_ID }} \
-            --region=${{ env.GCP_REGION }} \
+          gcloud run jobs execute ${{ env.CLOUD_RUN_JOB_NAME }} \
+            --project=${{ env.GOOGLE_CLOUD_PROJECT }} \
+            --region=${{ env.GCP_REGION }}
             --wait
