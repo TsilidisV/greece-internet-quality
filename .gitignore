@@ -1,6 +1,8 @@
 **.json
 **.secrets/
 
+**secrets.toml
+
 # Terraform.gitignore
 # My Exceptions
 .DS_Store

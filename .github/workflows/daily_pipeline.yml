@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
+      # It's good practice to set these as env vars
+      GCP_PROJECT_ID:  ${{ secrets.GCP_PROJECT_ID }} # Replace or use secrets
+      GCP_REGION:  ${{ secrets.GCP_REGION }}         # Replace or use secrets
+      JOB_NAME:  ${{ secrets.JOB_NAME }}             # Replace with var.job_name value
 
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +25,10 @@ jobs:
         with:
           credentials_json: ${{ secrets.INGESTOR_GCP_KEY }}
 
+      # 2. Set up the gcloud CLI
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         
@@ -29,3 +37,11 @@ jobs:
         
       - name: Ingest Data
         run: uv run --directory ingest main.py daily
+
+      # 3. Trigger the Cloud Run Job
+      - name: Trigger ETL Cloud Run Job
+        run: |
+          gcloud run jobs execute ${{ env.JOB_NAME }} \
+            --project=${{ env.GCP_PROJECT_ID }} \
+            --region=${{ env.GCP_REGION }} \
+            --wait

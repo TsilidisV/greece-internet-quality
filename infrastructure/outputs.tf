@@ -19,3 +19,8 @@ output "TRANSFORM_SA_EMAIL" {
   description = "The email of the Load and Transform Service Account"
   value       = google_service_account.etl_sa.email
 }
+
+output "DASHBOARD_SA_EMAIL" {
+  description = "The email of the Dashboard Service Account"
+  value       = google_service_account.dashboard_sa.email
+}

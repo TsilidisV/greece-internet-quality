@@ -35,6 +35,12 @@ resource "google_project_service" "enabled_apis" {
 # --------------------------------------------------------------------------------
 # 2. Service Accounts & Security
 # --------------------------------------------------------------------------------
+resource "time_sleep" "wait_for_sa" {
+  depends_on = [google_service_account.etl_sa]
+  create_duration = "30s"
+}
+
+### Transformation ###
 # Create a dedicated Service Account for the ETL Job
 resource "google_service_account" "etl_sa" {
   account_id   = "etl-job-sa"
@@ -42,15 +48,41 @@ resource "google_service_account" "etl_sa" {
   depends_on   = [google_project_service.enabled_apis]
 }
 
-resource "time_sleep" "wait_for_sa" {
-  depends_on = [google_service_account.etl_sa]
-  create_duration = "30s"
-}
-
+### Ingestor ###
 # Create the Service Account for the Ingestor
 resource "google_service_account" "ingestor_sa" {
   account_id   = "ingestor-sa"
   display_name = "Ingestor Service Account (GitHub Actions)"
+}
+
+### DASHBOARD ###
+# This account is used by the Streamlit dashboard to authenticate with BigQuery.
+resource "google_service_account" "dashboard_sa" {
+  account_id   = "streamlit-dashboard-sa"
+  display_name = "Streamlit Dashboard Service Account"
+  description  = "Used by Streamlit to read data from BigQuery"
+}
+
+# Grant permission to run BigQuery jobs (required to run queries)
+resource "google_project_iam_member" "dashboard_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.dashboard_sa.email}"
+}
+
+# Grant permission to read data from BigQuery datasets
+resource "google_project_iam_member" "dashboard_bq_data_viewer" {
+  project = var.project_id
+  role    = "roles/bigquery.dataViewer"
+  member  = "serviceAccount:${google_service_account.dashboard_sa.email}"
+}
+
+# Allow the Ingestor SA (GitHub Actions) to invoke the Cloud Run Job
+resource "google_cloud_run_v2_job_iam_member" "ingestor_invoke_permissions" {
+  name     = google_cloud_run_v2_job.etl_job.name
+  location = google_cloud_run_v2_job.etl_job.location
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.ingestor_sa.email}"
 }
 
 # --------------------------------------------------------------------------------
@@ -131,8 +163,8 @@ resource "google_cloud_run_v2_job" "etl_job" {
         # Keep resources just high enough for Spark/Pandas but low enough to save credits.
         resources {
           limits = {
-            cpu    = "1"
-            memory = "2Gi" 
+            cpu    = "2"
+            memory = "5Gi" 
           }
         }
         
@@ -192,4 +224,3 @@ resource "google_cloud_scheduler_job" "daily_trigger" {
 
   depends_on = [google_cloud_run_v2_job.etl_job]
 }
-

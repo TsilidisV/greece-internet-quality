@@ -41,3 +41,10 @@ Builds and locally runs the dockerfile
 make image-push
 ```
 Builds and pushes image to docker hub
+
+### Dashboard
+```bash
+make create-dashboard-key
+```
+downloads service account key for dashboard with reading and querying to BigQuery and creates a `secrets.toml` file in `dashboard/.streamlit/`.
+

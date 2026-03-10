@@ -3,7 +3,7 @@ import logging
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col, to_timestamp, sha2, when, lag, sum as _sum, 
-    unix_timestamp, count, covar_pop, var_pop, expr, concat_ws, to_date
+    unix_timestamp, count, covar_pop, var_pop, expr, concat_ws, to_date, date_trunc
 )
 from pyspark.sql.window import Window
 from pyspark.sql.types import StructType, StructField, StringType, TimestampType, DateType, LongType, DoubleType
@@ -28,9 +28,9 @@ def get_spark_session():
     # Base configuration
     builder = SparkSession.builder \
         .appName("GCS-to-BigQuery-ETL") \
-        .master("local[2]") \
+        .master("local[*]") \
         .config("spark.driver.memory", "4g") \
-        .config("spark.sql.shuffle.partitions", "3") \
+        .config("spark.sql.shuffle.partitions", "2") \
         .config("spark.jars", gcs_jar_url) \
         .config("spark.jars.packages", bq_package) \
         .config("spark.hadoop.fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem") \
@@ -74,7 +74,7 @@ def main():
         bucket_name = os.environ.get("GCS_BUCKET_NAME")
         dataset = os.environ.get("BQ_DATASET")
 
-        logger.info("1............")
+        logger.info("1.....")
 
         # Log a warning if environment variables are missing
         if not bucket_name or not dataset:
@@ -83,30 +83,30 @@ def main():
         # ---------------------------------------------------------
         # 1. READ BRONZE (Raw CSV)
         # ---------------------------------------------------------
-        silver_schema = hyperion_schema = StructType([
-            StructField("measurement_time", TimestampType(), True), 
-            StructField("connection_id", StringType(), True), 
-            StructField("client_ip", StringType(), True),
-            StructField("measurement_id", LongType(), True),  # Could also be LongType depending on scale
-            StructField("measured_downstream_mbps", DoubleType(), True),
-            StructField("measured_upstream_mbps", DoubleType(), True),
-            StructField("measured_rtt_msec", DoubleType(), True),
-            StructField("measured_loss_percentage", DoubleType(), True),
-            StructField("measured_jitter_msec", DoubleType(), True),
-            StructField("client_operating_system", StringType(), True),
-            StructField("client_operating_system_version", StringType(), True), 
-            StructField("client_operating_system_architecture", StringType(), True),
-            StructField("ISP", StringType(), True), 
-            StructField("contract_download_mbps", DoubleType(), True), 
-            StructField("contract_upload_mbps", DoubleType(), True), 
-            StructField("connection_postal_code", StringType(), True), 
-            StructField("connection_municipality_id", StringType(), True), 
-            StructField("connection_municipality", StringType(), True),
-            StructField("connection_regional_unit_id", StringType(), True), 
-            StructField("connection_regional_unit", StringType(), True),
-            StructField("connection_periphery_id", StringType(), True), 
-            StructField("connection_periphery", StringType(), True)
-        ])
+        #silver_schema = hyperion_schema = StructType([
+        #    StructField("measurement_time", TimestampType(), True), 
+        #    StructField("connection_id", StringType(), True), 
+        #    StructField("client_ip", StringType(), True),
+        #    StructField("measurement_id", LongType(), True),  # Could also be LongType depending on scale
+        #    StructField("measured_downstream_mbps", DoubleType(), True),
+        #    StructField("measured_upstream_mbps", DoubleType(), True),
+        #    StructField("measured_rtt_msec", DoubleType(), True),
+        #    StructField("measured_loss_percentage", DoubleType(), True),
+        #    StructField("measured_jitter_msec", DoubleType(), True),
+        #    StructField("client_operating_system", StringType(), True),
+        #    StructField("client_operating_system_version", StringType(), True), 
+        #    StructField("client_operating_system_architecture", StringType(), True),
+        #    StructField("ISP", StringType(), True), 
+        #    StructField("contract_download_mbps", DoubleType(), True), 
+        #    StructField("contract_upload_mbps", DoubleType(), True), 
+        #    StructField("connection_postal_code", StringType(), True), 
+        #    StructField("connection_municipality_id", StringType(), True), 
+        #    StructField("connection_municipality", StringType(), True),
+        #    StructField("connection_regional_unit_id", StringType(), True), 
+        #    StructField("connection_regional_unit", StringType(), True),
+        #    StructField("connection_periphery_id", StringType(), True), 
+        #    StructField("connection_periphery", StringType(), True)
+        #])
 
         input_path = f"gs://{bucket_name}/hyperion/"
         logger.info(f"Reading from: {input_path}")
@@ -116,12 +116,9 @@ def main():
         # ---------------------------------------------------------
         # 2. CREATE SILVER (Cleansed & Conformed)
         # ---------------------------------------------------------
-        # Dedupe based on measurement_id
-        silver_df = bronze_df \
-            .dropDuplicates(['measurement_id'])
 
         # Type-cast measurement_time and hash user_id
-        silver_df = silver_df \
+        silver_df = bronze_df \
             .withColumn("measurement_time", to_timestamp(col("measurement_time"))) \
             .withColumn("measurement_date", to_date(col("measurement_time"))) \
             .withColumn("user_id", sha2(col("client_ip"), 256)) \
@@ -134,16 +131,24 @@ def main():
 
         string_nan_cols = ["connection_municipality", "connection_regional_unit", "connection_periphery"]
         for c in string_nan_cols:
-            silver_df = silver_df.withColumn(c, when(col(c) == "NaN", None).otherwise(col(c)))
+            silver_df = silver_df.withColumn(
+                c, 
+                when((col(c) == "NaN") | (col(c).isNull()), 'N/A')
+                .otherwise(col(c))
+            )
 
         # Basic Data Quality Filter
         silver_df = silver_df.filter(col("measurement_time").isNotNull()) \
                             .filter(col("measured_downstream_mbps") >= 0)
-
+        
+        # Dedupe based on measurement_id and measurement_date
+        silver_df = silver_df \
+            .dropDuplicates(['measurement_date', 'measurement_id'])
+        
         #silver_df.cache()
 
         # -> WRITE TO BIGQUERY OR GCS: my_project.silver.measurements
-        target_table = f"{dataset}.silver_measurements4"
+        target_table = f"{dataset}.silver_measurements"
 
         silver_df.write \
             .format("bigquery") \
@@ -182,7 +187,7 @@ def main():
         # Rule: If gap > 30 mins (1800 secs) OR it's the first test (prev_time is null), it's a new session (1)
         sessions_flagged = sessions_base.withColumn(
             "is_new_session",
-            when(col("time_gap_seconds") > 1800, 1)
+            when(col("time_gap_seconds") > (2*1800), 1)
             .when(col("prev_measurement_time").isNull(), 1)
             .otherwise(0)
         )
@@ -233,40 +238,40 @@ def main():
         # 3B. GOLD: LINEAR REGRESSION SLOPE (Speeds over Time)
         # ---------------------------------------------------------
         # Convert timestamp to a numeric value (Unix Epoch) to act as our 'X' axis
-        trend_base_df = silver_df.withColumn("time_x", unix_timestamp("measurement_time"))
+        #trend_base_df = silver_df.withColumn("time_x", unix_timestamp("measurement_time"))
 
-        gold_user_speed_trends = trend_base_df.groupBy("user_id").agg(
-            count("measurement_id").alias("total_tests"),
-            expr("min(measurement_time)").alias("first_test_time"),
-            expr("max(measurement_time)").alias("last_test_time"),
-            covar_pop("measured_downstream_mbps", "time_x").alias("covar_xy"),
-            var_pop("time_x").alias("var_x")
-        )
+        #gold_user_speed_trends = trend_base_df.groupBy("user_id").agg(
+        #    count("measurement_id").alias("total_tests"),
+        #    expr("min(measurement_time)").alias("first_test_time"),
+        #    expr("max(measurement_time)").alias("last_test_time"),
+        #    covar_pop("measured_downstream_mbps", "time_x").alias("covar_xy"),
+        #    var_pop("time_x").alias("var_x")
+        #)
 
         # Filter for users with >1 test and variance > 0 (to avoid division by zero)
-        gold_user_speed_trends = gold_user_speed_trends \
-            .filter("total_tests > 1 AND var_x > 0") \
-            .withColumn("download_slope_mbps_per_sec", col("covar_xy") / col("var_x")) \
-            .drop("covar_xy", "var_x")
+        #gold_user_speed_trends = gold_user_speed_trends \
+        #    .filter("total_tests > 1 AND var_x > 0") \
+        #    .withColumn("download_slope_mbps_per_sec", col("covar_xy") / col("var_x")) \
+        #    .drop("covar_xy", "var_x")
 
         # Note: The slope represents "Change in Mbps per Second". 
         # Multiply by 86400 if you want to view it as "Change in Mbps per Day".
-        gold_user_speed_trends = gold_user_speed_trends.withColumn(
-            "download_slope_mbps_per_day", col("download_slope_mbps_per_sec") * 86400
-        )
+        #gold_user_speed_trends = gold_user_speed_trends.withColumn(
+        #    "download_slope_mbps_per_day", col("download_slope_mbps_per_sec") * 86400
+        #)
 
         # -> WRITE TO BIGQUERY OR GCS: my_project.silver.measurements
-        target_table = f"{dataset}.gold_user_speed_trends"
+        #target_table = f"{dataset}.gold_user_speed_trends"
 
-        gold_user_speed_trends.write \
-            .format("bigquery") \
-            .option("writeMethod", "indirect") \
-            .option("temporaryGcsBucket", bucket_name) \
-            .option("table", target_table) \
-            .mode("overwrite") \
-            .save()
+        #gold_user_speed_trends.write \
+        #    .format("bigquery") \
+        #    .option("writeMethod", "indirect") \
+        #    .option("temporaryGcsBucket", bucket_name) \
+        #    .option("table", target_table) \
+        #    .mode("overwrite") \
+        #    .save()
             
-        logger.info(f"{target_table} successfully written to BigQuery.")
+        #logger.info(f"{target_table} successfully written to BigQuery.")
 
         # ---------------------------------------------------------
         # 3C. GOLD: REGIONAL METRICS (Daily)
@@ -276,11 +281,16 @@ def main():
             .agg(
                 count("measurement_id").alias("total_tests"),
                 expr("avg(measured_downstream_mbps)").alias("avg_downstream_mbps"),
+                #expr("percentile_approx(measured_downstream_mbps, 0.1)").alias("p10_downstream_mbps"),
                 expr("percentile_approx(measured_downstream_mbps, 0.5)").alias("p50_downstream_mbps"),
-                expr("percentile_approx(measured_downstream_mbps, 0.9)").alias("p90_downstream_mbps"),
+                #expr("percentile_approx(measured_downstream_mbps, 0.9)").alias("p90_downstream_mbps"),
                 expr("avg(measured_upstream_mbps)").alias("avg_upstream_mbps"),
-                expr("percentile_approx(measured_upstream_mbps, 0.5)").alias("p50_upstream_mbps"),
-                expr("percentile_approx(measured_upstream_mbps, 0.9)").alias("p90_upstream_mbps")
+                #expr("percentile_approx(measured_upstream_mbps, 0.1)").alias("p10_upstream_mbps"),
+                #expr("percentile_approx(measured_upstream_mbps, 0.5)").alias("p50_upstream_mbps"),
+                #expr("percentile_approx(measured_upstream_mbps, 0.9)").alias("p90_upstream_mbps")
+                expr("avg(measured_rtt_msec)").alias("avg_rtt_msec"),
+                expr("avg(measured_loss_percentage)").alias("avg_loss_percentage"),
+                expr("avg(measured_jitter_msec)").alias("avg_jitter_msec"),
             )
 
         # -> WRITE TO BIGQUERY OR GCS: my_project.silver.measurements
