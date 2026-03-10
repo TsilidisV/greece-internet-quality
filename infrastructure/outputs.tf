@@ -26,9 +26,9 @@ output "DASHBOARD_SA_EMAIL" {
 }
 
 output "CLOUD_RUN_JOB_NAME" {
-  value = google_cloud_run_v2_job.etl_job.name
+  value = var.job_name
 }
 
 output "GCP_REGION" {
-  value = google_cloud_run_v2_job.etl_job.name
+  value = var.region
 }
